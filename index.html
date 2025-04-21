@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>වෙබ් හෝස්ටින් පද්ධති MVP</title>
+  <script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.22.5/babel.min.js"></script>
+  <script src="https://unpkg.com/tailwindcss@3.4.1/dist/tailwindcss.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Noto Sans Sinhala', sans-serif, sans-serif;
+    }
+    .spinner {
+      border: 4px solid rgba(0, 0, 0, 0.1);
+      border-left: 4px solid #3498db;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <div id="fallback" style="display: none; text-align: center; padding: 20px;">
+    <h1>දෝෂයක් ඇති විය</h1>
+    <p>කරුණාකර පිටුව නැවත පූරණය කරන්න හෝ ඔබේ ජාල සම්බන්ධතාවය පරීක්ෂා කරන්න.</p>
+  </div>
+  <script type="text/babel">
+    if (!window.React || !window.ReactDOM || !window.Babel) {
+      document.getElementById('root').style.display = 'none';
+      document.getElementById('fallback').style.display = 'block';
+      throw new Error('Required dependencies failed to load');
+    }
+
+    const { useState } = React;
+
+    function App() {
+      const [files, setFiles] = useState([]);
+      const [projectName, setProjectName] = useState('');
+      const [email, setEmail] = useState('');
+      const [message, setMessage] = useState('');
+      const [status, setStatus] = useState('');
+      const [isLoading, setIsLoading] = useState(false);
+      const [error, setError] = useState('');
+
+      const handleFileChange = (e) => {
+        setFiles(e.target.files);
+      };
+
+      const handleProjectNameChange = (e) => {
+        const value = e.target.value;
+        const sanitizedValue = value.replace(/[^a-zA-Z0-9\s-]/g, '');
+        setProjectName(sanitizedValue);
+      };
+
+      const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+        if (!projectName || !email || files.length === 0) {
+          setMessage('කරුණාකර සියලු අනිවාර්ය ක්ෂේත්‍ර පුරවන්න සහ ගොනු උඩුගත කරන්න.');
+          return;
+        }
+
+        setIsLoading(true);
+        setStatus('GitHub ගබඩාව සෑදෙමින්...');
+        const formData = new FormData();
+        formData.append('projectName', projectName);
+        formData.append('email', email);
+        for (let i = 0; i < files.length; i++) {
+          formData.append('files', files[i]);
+        }
+
+        try {
+          console.log('Attempting to fetch from http://localhost:3000/upload');
+          const response = await fetch('http://localhost:3000/upload', {
+            method: 'POST',
+            body: formData,
+          });
+          if (!response.ok) {
+            throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
+          }
+          const result = await response.json();
+          setStatus('');
+          setMessage(`සාර්ථකයි! ඔබේ වෙබ් අඩවිය මෙතැනින් බලන්න: ${result.githubPagesUrl}`);
+        } catch (err) {
+          console.error('Fetch error:', err);
+          setError(`දෝෂයක්: ${err.message}. කරුණාකර backend server ධාවනය වන බව තහවුරු කරන්න (http://localhost:3000).`);
+          setStatus('');
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      return (
+        <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+          <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+            <h1 className="text-2xl font-bold mb-6 text-center">වෙබ් අඩවි හෝස්ටින් පද්ධතිය</h1>
+            <form onSubmit={handleSubmit}>
+              <div className="mb-4">
+                <label className="block text-gray-700">ව්‍යාපෘති නම *</label>
+                <input
+                  type="text"
+                  value={projectName}
+                  onChange={handleProjectNameChange}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder="මගේ වෙබ් අඩවිය"
+                  required
+                />
+                <p className="text-sm text-gray-500 mt-1">අකුරු, ඉලක්කම්, හිස්තැන්, සහ - පමණක් භාවිතා කරන්න.</p>
+              </div>
+              <div className="mb-4">
+                <label className="block text-gray-700">ඊමේල් *</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder="hasindu@example.com"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-gray-700">ගොනු උඩුගත කරන්න (HTML, CSS, JS) *</label>
+                <input
+                  type="file"
+                  multiple
+                  accept=".html,.css,.js"
+                  onChange={handleFileChange}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 disabled:bg-blue-300"
+              >
+                {isLoading ? (
+                  <span>
+                    <span className="spinner mr-2"></span>
+                    උඩුගත වෙමින්...
+                  </span>
+                ) : (
+                  'මගේ වෙබ් අඩවිය හෝස්ට් කරන්න'
+                )}
+              </button>
+            </form>
+            {status && (
+              <p className="mt-4 text-center text-blue-600">{status}</p>
+            )}
+            {message && (
+              <p className="mt-4 text-center text-green-600">{message}</p>
+            )}
+            {error && (
+              <p className="mt-4 text-center text-red-600">{error}</p>
+            )}
+            <p className="mt-4 text-center text-sm text-gray-600">
+              MVP by Hasindu Sanahas, Concept Developer, KDJ Lanka Pvt Ltd
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    try {
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<App />);
+      console.log('React app rendered successfully');
+    } catch (err) {
+      console.error('React rendering failed:', err);
+      document.getElementById('root').style.display = 'none';
+      document.getElementById('fallback').style.display = 'block';
+    }
+  </script>
+</body>
+</html>
